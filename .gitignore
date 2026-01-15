@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.npm-local-cache/
+
+# Build output
+backend/dist/
+frontend/dist/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Uploads (user content, not in git)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Serena
+.serena/
