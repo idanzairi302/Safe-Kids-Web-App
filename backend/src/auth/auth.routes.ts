@@ -24,6 +24,7 @@ function generateRefreshToken(userId: string): string {
 
 function setRefreshCookie(res: Response, token: string): void {
   res.cookie('refreshToken', token, {
+    httpOnly: true,
     secure: config.nodeEnv === 'production',
     sameSite: 'lax',
     maxAge: REFRESH_COOKIE_MAX_AGE,
@@ -221,6 +222,7 @@ router.post('/logout', async (req: Request, res: Response): Promise<void> => {
     }
 
     res.clearCookie('refreshToken', {
+      httpOnly: true,
       secure: config.nodeEnv === 'production',
       sameSite: 'lax',
     });
@@ -228,6 +230,7 @@ router.post('/logout', async (req: Request, res: Response): Promise<void> => {
   } catch {
     // Clear cookie even if token is invalid/expired
     res.clearCookie('refreshToken', {
+      httpOnly: true,
       secure: config.nodeEnv === 'production',
       sameSite: 'lax',
     });
