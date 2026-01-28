@@ -68,7 +68,7 @@ const FeedPage: React.FC = () => {
         endMessage={<p className="scroll-end">You're all caught up!</p>}
       >
         {posts.map((post) => (
-          <PostCard post={post} />
+          <PostCard key={post._id} post={post} />
         ))}
       </InfiniteScroll>
     </div>
