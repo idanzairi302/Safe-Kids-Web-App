@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import { config } from './config/env';
 import authRoutes from './auth/auth.routes';
+import userRoutes from './users/user.routes';
 import postRoutes from './posts/post.routes';
 import commentRoutes from './comments/comment.routes';
 import likeRoutes from './likes/like.routes';
@@ -22,6 +23,7 @@ app.use(cookieParser());
 app.use('/uploads', express.static(path.resolve(config.upload.dir)));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/posts/:postId/comments', commentRoutes);
 app.use('/api/posts/:postId/like', likeRoutes);
