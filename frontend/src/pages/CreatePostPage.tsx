@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft } from 'react-icons/fi';
 import api from '../services/api';
+import ImageUpload from '../components/ImageUpload';
 
 const CreatePostPage: React.FC = () => {
   const navigate = useNavigate();
@@ -57,11 +58,7 @@ const CreatePostPage: React.FC = () => {
           </div>
           <div className="form-group">
             <label>Photo</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setImage(e.target.files?.[0] || null)}
-            />
+            <ImageUpload onFileSelect={setImage} label="Upload a photo of the hazard" />
           </div>
           <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
             {submitting ? 'Posting...' : 'Post Hazard Report'}
