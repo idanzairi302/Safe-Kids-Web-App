@@ -6,7 +6,11 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import FeedPage from './pages/FeedPage';
+import PostDetailPage from './pages/PostDetailPage';
+import CommentsPage from './pages/CommentsPage';
 import CreatePostPage from './pages/CreatePostPage';
+import EditPostPage from './pages/EditPostPage';
+import ProfilePage from './pages/ProfilePage';
 import './styles.css';
 
 const App: React.FC = () => {
@@ -20,6 +24,10 @@ const App: React.FC = () => {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/post/new" element={<ProtectedRoute><CreatePostPage /></ProtectedRoute>} />
+            <Route path="/post/:id" element={<PostDetailPage />} />
+            <Route path="/post/:id/edit" element={<ProtectedRoute><EditPostPage /></ProtectedRoute>} />
+            <Route path="/post/:id/comments" element={<CommentsPage />} />
+            <Route path="/profile/:id" element={<ProfilePage />} />
           </Routes>
         </div>
       </BrowserRouter>
