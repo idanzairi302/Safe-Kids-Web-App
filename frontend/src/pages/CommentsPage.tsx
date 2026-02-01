@@ -1,11 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiArrowLeft, FiSend } from 'react-icons/fi';
+import { FiArrowLeft, FiSend, FiTrash2 } from 'react-icons/fi';
 import api from '../services/api';
 import { Post, Comment } from '../types';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { resolveImageUrl } from '../utils';
+
+const timeAgo = (dateStr: string): string => {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return days < 7 ? `${days}d ago` : new Date(dateStr).toLocaleDateString();
+};
 
 const CommentsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -42,10 +53,20 @@ const CommentsPage: React.FC = () => {
     try {
       const { data } = await api.post(`/api/posts/${id}/comments`, { text: text.trim() });
       setComments((prev) => [...prev, data]);
+      setText('');
     } catch {
       setError('Failed to add comment');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (commentId: string) => {
+    try {
+      await api.delete(`/api/posts/${id}/comments/${commentId}`);
+      setComments((prev) => prev.filter((c) => c._id !== commentId));
+    } catch {
+      setError('Failed to delete comment');
     }
   };
 
@@ -94,9 +115,14 @@ const CommentsPage: React.FC = () => {
               />
               <div className="comment-body">
                 <span className="comment-author">{comment.author?.username}</span>
-                <span className="comment-time">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                <span className="comment-time">{timeAgo(comment.createdAt)}</span>
                 <p className="comment-text">{comment.text}</p>
               </div>
+              {user && comment.author && user._id === comment.author._id && (
+                <button className="comment-delete" onClick={() => handleDelete(comment._id)}>
+                  <FiTrash2 />
+                </button>
+              )}
             </div>
           ))
         )}
