@@ -8,6 +8,7 @@ import userRoutes from './users/user.routes';
 import postRoutes from './posts/post.routes';
 import commentRoutes from './comments/comment.routes';
 import likeRoutes from './likes/like.routes';
+import searchRoutes from './ai/ai.routes';
 
 const app = express();
 
@@ -27,5 +28,6 @@ app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/posts/:postId/comments', commentRoutes);
 app.use('/api/posts/:postId/like', likeRoutes);
+app.use('/api/search', searchRoutes);
 
 export default app;
