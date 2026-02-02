@@ -1,3 +1,4 @@
+import NodeCache from 'node-cache';
 import { config } from '../config/env';
 import { buildPrompt } from './ai.prompts';
 import Post, { IPost } from '../posts/post.model';
@@ -14,7 +15,19 @@ export interface SearchResult {
   fallback: boolean;
 }
 
+interface MongoQuery {
+  filter: Record<string, unknown>;
+  sort: Record<string, 1 | -1>;
+}
+
 const VALID_CATEGORIES = ['playground', 'road', 'lighting', 'animals', 'water', 'general'];
+
+const cache = new NodeCache({ stdTTL: config.ollama.cacheTtlSeconds });
+const inflightQueries = new Map<string, Promise<SearchResult>>();
+
+function normalizeQuery(query: string): string {
+  return query.toLowerCase().trim().replace(/\s+/g, ' ');
+}
 
 function validateParsedQuery(data: unknown): ParsedQuery {
   if (typeof data !== 'object' || data === null) {
@@ -88,7 +101,20 @@ async function ollamaGenerate(query: string): Promise<ParsedQuery> {
   }
 }
 
-function buildMongoQuery(parsed: ParsedQuery) {
+async function ollamaGenerateWithRetry(query: string): Promise<ParsedQuery> {
+  try {
+    return await ollamaGenerate(query);
+  } catch (firstError) {
+    // Retry once on parse/validation failure
+    try {
+      return await ollamaGenerate(query);
+    } catch {
+      throw firstError;
+    }
+  }
+}
+
+function buildMongoQuery(parsed: ParsedQuery): MongoQuery {
   let searchTerms = parsed.keywords.join(' ');
   if (parsed.category && parsed.category !== 'general') {
     searchTerms += ` ${parsed.category}`;
@@ -102,16 +128,43 @@ function buildMongoQuery(parsed: ParsedQuery) {
 }
 
 export async function searchPosts(query: string): Promise<SearchResult> {
-  const parsed = await ollamaGenerate(query);
-  const { filter, sort } = buildMongoQuery(parsed);
+  const key = normalizeQuery(query);
 
-  const posts = await Post.find(filter, { score: { $meta: 'textScore' } })
-    .sort(sort)
-    .limit(20)
-    .populate('author', 'username profileImage')
-    .lean<IPost[]>();
+  // Check cache
+  const cached = cache.get<SearchResult>(key);
+  if (cached) {
+    return cached;
+  }
 
-  return { posts, query: parsed, fallback: false };
+  // Check dedup
+  const inflight = inflightQueries.get(key);
+  if (inflight) {
+    return inflight;
+  }
+
+  const promise = (async (): Promise<SearchResult> => {
+    try {
+      const parsed = await ollamaGenerateWithRetry(query);
+      const { filter, sort } = buildMongoQuery(parsed);
+
+      const posts = await Post.find(filter, { score: { $meta: 'textScore' } })
+        .sort(sort)
+        .limit(20)
+        .populate('author', 'username profileImage')
+        .lean<IPost[]>();
+
+      const result: SearchResult = { posts, query: parsed, fallback: false };
+      cache.set(key, result);
+      return result;
+    } catch {
+      return fallbackSearch(query);
+    }
+  })();
+
+  inflightQueries.set(key, promise);
+  promise.finally(() => inflightQueries.delete(key));
+
+  return promise;
 }
 
 export async function fallbackSearch(query: string): Promise<SearchResult> {
