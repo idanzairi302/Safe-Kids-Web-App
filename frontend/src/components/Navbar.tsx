@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { FiHome, FiSearch, FiPlusCircle, FiUser, FiLogOut, FiLogIn } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
+import { resolveImageUrl } from '../utils';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -27,7 +28,11 @@ const Navbar: React.FC = () => {
               <FiPlusCircle /> <span>Post</span>
             </Link>
             <Link to={`/profile/${user._id}`} className={location.pathname.startsWith('/profile') ? 'active' : ''}>
-              <FiUser />
+              {user.profileImage ? (
+                <img src={resolveImageUrl(user.profileImage)} alt="" className="navbar-avatar" />
+              ) : (
+                <FiUser />
+              )}
               <span>Profile</span>
             </Link>
             <button onClick={logout}>
