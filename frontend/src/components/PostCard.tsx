@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiHeart, FiMessageCircle } from 'react-icons/fi';
 import { Post } from '../types';
+import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import { resolveImageUrl } from '../utils';
 
 interface PostCardProps {
   post: Post;
+  onLike?: (postId: string, liked: boolean, count: number) => void;
+  truncate?: boolean;
 }
 
 const timeAgo = (dateStr: string): string => {
@@ -20,8 +24,31 @@ const timeAgo = (dateStr: string): string => {
   return new Date(dateStr).toLocaleDateString();
 };
 
-const PostCard: React.FC<PostCardProps> = ({ post }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, onLike, truncate = true }) => {
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(post.likesCount);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    api.get(`/api/posts/${post._id}/like`).then(({ data }) => {
+      if (!cancelled) setLiked(data.liked);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [post._id, user]);
+
+  const handleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return navigate('/login');
+    try {
+      const { data } = await api.post(`/api/posts/${post._id}/like`);
+      setLiked(data.liked);
+      setLikesCount(data.likesCount);
+      onLike?.(post._id, data.liked, data.likesCount);
+    } catch {}
+  };
 
   const authorImage = resolveImageUrl(post.author?.profileImage);
   const postImage = resolveImageUrl(post.image);
@@ -48,16 +75,19 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
       )}
 
       <div className="post-card-body">
-        <p className="post-card-text truncated" onClick={() => navigate(`/post/${post._id}`)}>
+        <p
+          className={`post-card-text ${truncate ? 'truncated' : ''}`}
+          onClick={() => navigate(`/post/${post._id}`)}
+        >
           {post.text}
         </p>
       </div>
 
       <div className="post-card-actions">
-        <span className="post-action-btn">
-          <FiHeart className="icon" />
-          {post.likesCount}
-        </span>
+        <button className={`post-action-btn ${liked ? 'liked' : ''}`} onClick={handleLike}>
+          <FiHeart className="icon" style={liked ? { fill: 'currentColor' } : {}} />
+          {likesCount}
+        </button>
         <Link to={`/post/${post._id}/comments`} className="post-action-btn">
           <FiMessageCircle className="icon" />
           {post.commentsCount}

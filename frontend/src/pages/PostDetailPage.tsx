@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiArrowLeft, FiMessageCircle } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiHeart, FiMessageCircle } from 'react-icons/fi';
 import api from '../services/api';
 import { Post } from '../types';
+import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { resolveImageUrl } from '../utils';
 
@@ -20,8 +21,11 @@ const timeAgo = (dateStr: string): string => {
 
 const PostDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [post, setPost] = useState<Post | null>(null);
+  const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -30,6 +34,11 @@ const PostDetailPage: React.FC = () => {
       try {
         const { data } = await api.get(`/api/posts/${id}`);
         setPost(data);
+        setLikesCount(data.likesCount);
+        if (user) {
+          const likeRes = await api.get(`/api/posts/${id}/like`);
+          setLiked(likeRes.data.liked);
+        }
       } catch {
         setError('Post not found');
       } finally {
@@ -37,7 +46,26 @@ const PostDetailPage: React.FC = () => {
       }
     };
     fetchPost();
-  }, [id]);
+  }, [id, user]);
+
+  const handleLike = async () => {
+    if (!user) return navigate('/login');
+    try {
+      const { data } = await api.post(`/api/posts/${id}/like`);
+      setLiked(data.liked);
+      setLikesCount(data.likesCount);
+    } catch {}
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm('Delete this post?')) return;
+    try {
+      await api.delete(`/api/posts/${id}`);
+      navigate('/');
+    } catch {
+      setError('Failed to delete post');
+    }
+  };
 
   if (loading) return <LoadingSpinner />;
   if (error || !post) return (
@@ -45,6 +73,8 @@ const PostDetailPage: React.FC = () => {
       <div className="error-message">{error || 'Post not found'}</div>
     </div>
   );
+
+  const isOwner = user && post.author && user._id === post.author._id;
 
   return (
     <div className="container post-detail">
@@ -73,11 +103,26 @@ const PostDetailPage: React.FC = () => {
 
         <div className="post-detail-meta">
           <div className="post-card-actions" style={{ padding: 0 }}>
+            <button className={`post-action-btn ${liked ? 'liked' : ''}`} onClick={handleLike}>
+              <FiHeart className="icon" style={liked ? { fill: 'currentColor' } : {}} />
+              {likesCount}
+            </button>
             <Link to={`/post/${post._id}/comments`} className="post-action-btn">
               <FiMessageCircle className="icon" />
               {post.commentsCount} Comments
             </Link>
           </div>
+
+          {isOwner && (
+            <div className="post-detail-actions">
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/post/${post._id}/edit`)}>
+                <FiEdit2 /> Edit
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={handleDelete}>
+                <FiTrash2 /> Delete
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

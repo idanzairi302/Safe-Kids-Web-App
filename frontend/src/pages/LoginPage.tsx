@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, Navigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 
 const LoginPage: React.FC = () => {
-  const { user, loading, login } = useAuth();
+  const { user, loading, login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +25,16 @@ const LoginPage: React.FC = () => {
       setError(err.response?.data?.message || 'Login failed');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleGoogle = async (credentialResponse: any) => {
+    setError('');
+    try {
+      await googleLogin(credentialResponse.credential);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Google login failed');
     }
   };
 
@@ -60,6 +71,12 @@ const LoginPage: React.FC = () => {
             {submitting ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+
+        <div className="divider">or</div>
+
+        <div className="google-btn-wrapper">
+          <GoogleLogin onSuccess={handleGoogle} onError={() => setError('Google login failed')} />
+        </div>
 
         <div className="link">
           Don't have an account? <Link to="/register">Sign up</Link>
