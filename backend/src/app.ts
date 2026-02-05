@@ -9,9 +9,11 @@ import postRoutes from './posts/post.routes';
 import commentRoutes from './comments/comment.routes';
 import likeRoutes from './likes/like.routes';
 import searchRoutes from './ai/ai.routes';
+import { setupSwagger } from './swagger';
 
 const app = express();
 
+// Middleware
 app.use(cors({
   origin: config.frontendUrl,
   credentials: true,
@@ -23,11 +25,20 @@ app.use(cookieParser());
 // Serve uploaded files
 app.use('/uploads', express.static(path.resolve(config.upload.dir)));
 
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/posts/:postId/comments', commentRoutes);
 app.use('/api/posts/:postId/like', likeRoutes);
 app.use('/api/search', searchRoutes);
+
+// Swagger API docs
+setupSwagger(app);
+
+// Health check
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 export default app;
