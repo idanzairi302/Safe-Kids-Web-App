@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 72" width="280" height="72">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="checkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1E3A5F"/>
+      <stop offset="100%" stop-color="#1E40AF"/>
+    </linearGradient>
+    <filter id="shadowSm" x="-10%" y="-10%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#1D4ED8" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <!-- Shield icon -->
+  <g transform="translate(8, 4)" filter="url(#shadowSm)">
+    <!-- Shield body -->
+    <path d="M28 4 L50 12 C50 12 52 36 40 52 C36 57.5 28 62 28 62 C28 62 20 57.5 16 52 C4 36 6 12 6 12 Z"
+          fill="url(#shieldGrad)"
+          stroke="none"/>
+
+    <!-- Inner shield highlight -->
+    <path d="M28 8 L46 14.5 C46 14.5 47.5 35 37.5 49 C34.5 53 28 57 28 57 C28 57 21.5 53 18.5 49 C8.5 35 10 14.5 10 14.5 Z"
+          fill="none"
+          stroke="rgba(255,255,255,0.25)"
+          stroke-width="0.8"/>
+
+    <!-- Stylized child figure (abstract, friendly) -->
+    <!-- Head -->
+    <circle cx="28" cy="24" r="5.5" fill="white" opacity="0.95"/>
+
+    <!-- Body as a simple friendly shape -->
+    <path d="M28 29.5 C28 29.5 22 33 21 38 C20.5 40 21.5 42 23 42.5 L25.5 43"
+          fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" opacity="0.95"/>
+    <path d="M28 29.5 C28 29.5 34 33 35 38 C35.5 40 34.5 42 33 42.5 L30.5 43"
+          fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" opacity="0.95"/>
+    <line x1="28" y1="29.5" x2="28" y2="40" stroke="white" stroke-width="2.2" stroke-linecap="round" opacity="0.95"/>
+
+    <!-- Legs -->
+    <path d="M28 40 L24 48" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" opacity="0.95"/>
+    <path d="M28 40 L32 48" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" opacity="0.95"/>
+
+    <!-- Small green checkmark badge (bottom-right of shield) -->
+    <g transform="translate(40, 46)">
+      <circle cx="0" cy="0" r="8" fill="url(#checkGrad)" stroke="white" stroke-width="2"/>
+      <path d="M-3.5 0.5 L-1 3 L4 -2.5" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <!-- "SafeKids" text -->
+  <g transform="translate(72, 0)">
+    <!-- "Safe" in bold weight -->
+    <text x="0" y="44" font-family="'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+          font-size="32" font-weight="700" fill="url(#textGrad)" letter-spacing="-0.5">Safe</text>
+    <!-- "Kids" in medium weight with accent color -->
+    <text x="76" y="44" font-family="'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+          font-size="32" font-weight="500" fill="#3B82F6" letter-spacing="-0.5">Kids</text>
+
+    <!-- Tagline -->
+    <text x="1" y="59" font-family="'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+          font-size="9.5" font-weight="400" fill="#64748B" letter-spacing="2.8">COMMUNITY SAFETY</text>
+  </g>
+
+  <!-- Decorative dot accent -->
+  <circle cx="177" cy="30" r="2.8" fill="#34D399" opacity="0.85"/>
+</svg>
