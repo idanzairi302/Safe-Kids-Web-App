@@ -36,6 +36,11 @@
   gap: 6px;
 }
 
+.navbar-logo {
+  height: 36px;
+  width: auto;
+}
+
 .navbar-links {
   display: flex;
   align-items: center;
@@ -441,6 +446,12 @@ textarea.form-input {
   max-height: 300px;
   border-radius: 8px;
   object-fit: contain;
+}
+
+.image-upload-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin: 8px 0 0;
 }
 
 /* ===== POST DETAIL ===== */

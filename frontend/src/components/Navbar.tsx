@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { FiHome, FiSearch, FiPlusCircle, FiUser, FiLogOut, FiLogIn } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { resolveImageUrl } from '../utils';
+import safekidsLogo from '../assets/safekids-logo.svg';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -13,7 +14,7 @@ const Navbar: React.FC = () => {
   return (
     <nav className="navbar">
       <Link to="/" className="navbar-brand">
-        SafeKids
+        <img src={safekidsLogo} alt="SafeKids" className="navbar-logo" />
       </Link>
       <div className="navbar-links">
         <Link to="/" className={isActive('/')}>
