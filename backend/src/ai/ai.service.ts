@@ -66,16 +66,29 @@ function validateParsedQuery(data: unknown): ParsedQuery {
 
 async function ollamaGenerate(query: string): Promise<ParsedQuery> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add Basic Auth if credentials are configured
+    if (config.ollama.username && config.ollama.password) {
+      const credentials = Buffer.from(
+        `${config.ollama.username}:${config.ollama.password}`
+      ).toString('base64');
+      headers['Authorization'] = `Basic ${credentials}`;
+    }
+
     const res = await fetch(`${config.ollama.baseUrl}/api/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         model: config.ollama.model,
         prompt: buildPrompt(query),
         stream: false,
+        format: 'json',
       }),
       signal: controller.signal,
     });

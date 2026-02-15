@@ -24,8 +24,10 @@ export const config = {
   },
 
   ollama: {
-    baseUrl: process.env.OLLAMA_BASE_URL || 'http://10.0.0.100:11434',
-    model: process.env.OLLAMA_MODEL || 'gemma3:12b',
+    baseUrl: process.env.OLLAMA_BASE_URL || 'http://10.10.248.41',
+    model: process.env.OLLAMA_MODEL || 'llama3.1:8b',
+    username: process.env.OLLAMA_USERNAME || '',
+    password: process.env.OLLAMA_PASSWORD || '',
     rateLimitMax: parseInt(process.env.AI_RATE_LIMIT_MAX || '5', 10),
     rateLimitWindowMs: parseInt(process.env.AI_RATE_LIMIT_WINDOW_MS || '60000', 10),
     cacheTtlSeconds: parseInt(process.env.AI_CACHE_TTL_SECONDS || '60', 10),
