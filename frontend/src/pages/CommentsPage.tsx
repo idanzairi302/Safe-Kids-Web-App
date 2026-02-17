@@ -33,7 +33,7 @@ const CommentsPage: React.FC = () => {
     try {
       const [postRes, commentsRes] = await Promise.all([
         api.get(`/api/posts/${id}`),
-        api.get(`/api/posts/${id}/comments?limit=100`),
+        api.get(`/api/posts/${id}/comments?limit=50`),
       ]);
       setPost(postRes.data);
       setComments(commentsRes.data.comments || []);
