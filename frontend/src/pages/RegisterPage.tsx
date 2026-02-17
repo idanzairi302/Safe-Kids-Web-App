@@ -21,7 +21,7 @@ const RegisterPage: React.FC = () => {
     setSubmitting(true);
     try {
       await register(username, email, password);
-      navigate('/login');
+      navigate('/login', { state: { registered: true } });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Registration failed');
     } finally {

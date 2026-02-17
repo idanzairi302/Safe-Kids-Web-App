@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, Navigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 
 const LoginPage: React.FC = () => {
   const { user, loading, login, googleLogin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const registered = location.state?.registered;
 
   if (!loading && user) return <Navigate to="/" replace />;
 
@@ -44,6 +46,7 @@ const LoginPage: React.FC = () => {
         <h2>Welcome Back</h2>
         <p className="subtitle">Sign in to SafeKids</p>
 
+        {registered && <div className="success-message">Account created successfully! Please sign in.</div>}
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
