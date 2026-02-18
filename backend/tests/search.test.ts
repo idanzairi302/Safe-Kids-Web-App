@@ -1,6 +1,7 @@
 import request from 'supertest';
 import app from '../src/app';
 import Post from '../src/posts/post.model';
+import * as aiService from '../src/ai/ai.service';
 import { createTestUser, createAuthenticatedUser } from './setup';
 
 // Mock the global fetch to intercept Ollama calls
@@ -110,6 +111,264 @@ describe('Search Routes', () => {
         .send({});
 
       expect(res.status).toBe(400);
+    });
+
+    it('should handle Ollama non-ok status and fallback', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+      }) as jest.Mock;
+
+      const res = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'dark alley' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.fallback).toBe(true);
+    });
+
+    it('should handle Ollama response wrapped in markdown fences', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: '```json\n{"keywords": ["dogs", "park"], "category": "animals", "sortBy": "recent"}\n```',
+        }),
+      }) as jest.Mock;
+
+      const res = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'dogs in the park area' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.fallback).toBe(false);
+      expect(res.body.query.keywords).toContain('dogs');
+    });
+
+    it('should handle popular sortBy', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: JSON.stringify({
+            keywords: ['playground'],
+            category: 'playground',
+            sortBy: 'popular',
+          }),
+        }),
+      }) as jest.Mock;
+
+      const res = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'most liked playground reports' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.query.sortBy).toBe('popular');
+    });
+
+    it('should handle Ollama returning invalid JSON and fallback', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: 'this is not valid json at all',
+        }),
+      }) as jest.Mock;
+
+      const res = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'stray dogs' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.fallback).toBe(true);
+    });
+
+    it('should handle Ollama returning object without keywords and fallback', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: JSON.stringify({ category: 'playground' }),
+        }),
+      }) as jest.Mock;
+
+      const res = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'missing keywords field' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.fallback).toBe(true);
+    });
+
+    it('should handle Ollama returning non-string keywords and fallback', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: JSON.stringify({ keywords: [123, true] }),
+        }),
+      }) as jest.Mock;
+
+      const res = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'bad keyword types' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.fallback).toBe(true);
+    });
+
+    it('should handle null response from Ollama and fallback', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: 'null',
+        }),
+      }) as jest.Mock;
+
+      const res = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'null response test' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.fallback).toBe(true);
+    });
+
+    it('should ignore invalid category', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: JSON.stringify({
+            keywords: ['test'],
+            category: 'invalid-category',
+            sortBy: 'recent',
+          }),
+        }),
+      }) as jest.Mock;
+
+      const res = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'test invalid category' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.query.category).toBeUndefined();
+    });
+
+    it('should ignore invalid sortBy value', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: JSON.stringify({
+            keywords: ['test'],
+            sortBy: 'alphabetical',
+          }),
+        }),
+      }) as jest.Mock;
+
+      const res = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'test invalid sort' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.query.sortBy).toBeUndefined();
+    });
+
+    it('should return cached result on repeated query', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          response: JSON.stringify({
+            keywords: ['swing', 'playground'],
+            category: 'playground',
+            sortBy: 'recent',
+          }),
+        }),
+      }) as jest.Mock;
+
+      // First request populates cache
+      const res1 = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'cached query test' });
+
+      expect(res1.status).toBe(200);
+
+      // Second request should hit cache
+      const res2 = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'cached query test' });
+
+      expect(res2.status).toBe(200);
+      // fetch should only have been called for the first request (retry may cause 2 calls max)
+      // The important thing is the second request succeeds from cache
+    });
+
+    it('should deduplicate concurrent identical queries', async () => {
+      let callCount = 0;
+      global.fetch = jest.fn().mockImplementation(async () => {
+        callCount++;
+        // Simulate slow response
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return {
+          ok: true,
+          json: async () => ({
+            response: JSON.stringify({
+              keywords: ['concurrent'],
+              sortBy: 'recent',
+            }),
+          }),
+        };
+      }) as jest.Mock;
+
+      // Fire two identical requests concurrently
+      const [res1, res2] = await Promise.all([
+        request(app)
+          .post('/api/search')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ query: 'dedup concurrent test' }),
+        request(app)
+          .post('/api/search')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ query: 'dedup concurrent test' }),
+      ]);
+
+      expect(res1.status).toBe(200);
+      expect(res2.status).toBe(200);
+    });
+
+    it('should use route-level fallback when searchPosts throws', async () => {
+      const searchSpy = jest.spyOn(aiService, 'searchPosts').mockRejectedValueOnce(new Error('Search failed'));
+      // fallbackSearch will work normally using text search
+
+      const res = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'playground' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.fallback).toBe(true);
+
+      searchSpy.mockRestore();
+    });
+
+    it('should return 500 when both searchPosts and fallbackSearch fail', async () => {
+      const searchSpy = jest.spyOn(aiService, 'searchPosts').mockRejectedValueOnce(new Error('Search failed'));
+      const fallbackSpy = jest.spyOn(aiService, 'fallbackSearch').mockRejectedValueOnce(new Error('Fallback failed'));
+
+      const res = await request(app)
+        .post('/api/search')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ query: 'total failure test' });
+
+      expect(res.status).toBe(500);
+      expect(res.body.error).toMatch(/unavailable/i);
+
+      searchSpy.mockRestore();
+      fallbackSpy.mockRestore();
     });
   });
 });

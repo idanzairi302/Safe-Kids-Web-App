@@ -137,5 +137,57 @@ describe('Like Routes', () => {
 
       expect(res.status).toBe(401);
     });
+
+    it('should return 400 for invalid post ID', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'getlikebadid',
+        email: 'getlikebadid@example.com',
+      });
+
+      const res = await request(app)
+        .get('/api/posts/not-valid-id/like')
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // ─── Server error handling ──────────────────────────────────────
+  describe('Server error handling', () => {
+    it('should return 500 when toggle like throws', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'likeerr',
+        email: 'likeerr@example.com',
+      });
+
+      const spy = jest.spyOn(Post, 'findById').mockImplementationOnce(() => {
+        throw new Error('DB error');
+      });
+
+      const res = await request(app)
+        .post(`/api/posts/${postId}/like`)
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
+    });
+
+    it('should return 500 when check like throws', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'checklikeerr',
+        email: 'checklikeerr@example.com',
+      });
+
+      const spy = jest.spyOn(Like, 'findOne').mockImplementationOnce(() => {
+        throw new Error('DB error');
+      });
+
+      const res = await request(app)
+        .get(`/api/posts/${postId}/like`)
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
+    });
   });
 });
