@@ -1,7 +1,7 @@
 import request from 'supertest';
 import mongoose from 'mongoose';
 import app from '../src/app';
-import { createTestUser, createAuthenticatedUser, getAccessToken } from './setup';
+import { createTestUser, createAuthenticatedUser, getAccessToken, testImageBuffer } from './setup';
 
 describe('User Routes', () => {
   // ─── GET /api/users/:id ─────────────────────────────────────────────
@@ -75,6 +75,52 @@ describe('User Routes', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error).toMatch(/Username/i);
+    });
+
+    it('should fail with too-short username', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'validname',
+        email: 'shortname@example.com',
+      });
+
+      const res = await request(app)
+        .put('/api/users/me')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ username: 'ab' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should update profile image with auth', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'imguser',
+        email: 'imguser@example.com',
+      });
+
+      const res = await request(app)
+        .put('/api/users/me')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .attach('profileImage', testImageBuffer, 'avatar.png');
+
+      expect(res.status).toBe(200);
+      expect(res.body.profileImage).toMatch(/\/uploads\//);
+    });
+
+    it('should update both username and profile image', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'bothuser',
+        email: 'bothuser@example.com',
+      });
+
+      const res = await request(app)
+        .put('/api/users/me')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .field('username', 'updatedname')
+        .attach('profileImage', testImageBuffer, 'avatar.png');
+
+      expect(res.status).toBe(200);
+      expect(res.body.username).toBe('updatedname');
+      expect(res.body.profileImage).toMatch(/\/uploads\//);
     });
   });
 });

@@ -1,4 +1,5 @@
 import request from 'supertest';
+import mongoose from 'mongoose';
 import app from '../src/app';
 import Post from '../src/posts/post.model';
 import Like from '../src/likes/like.model';
@@ -68,6 +69,33 @@ describe('Like Routes', () => {
 
       expect(res.status).toBe(401);
     });
+
+    it('should return 404 for non-existent post', async () => {
+      const fakePostId = new mongoose.Types.ObjectId();
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'likenotfound',
+        email: 'likenotfound@example.com',
+      });
+
+      const res = await request(app)
+        .post(`/api/posts/${fakePostId}/like`)
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(res.status).toBe(404);
+    });
+
+    it('should return 400 for invalid post ID', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'likebadid',
+        email: 'likebadid@example.com',
+      });
+
+      const res = await request(app)
+        .post('/api/posts/not-valid-id/like')
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(res.status).toBe(400);
+    });
   });
 
   // ─── GET /api/posts/:postId/like ───────────────────────────────────
@@ -101,6 +129,13 @@ describe('Like Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.liked).toBe(false);
+    });
+
+    it('should fail without auth', async () => {
+      const res = await request(app)
+        .get(`/api/posts/${postId}/like`);
+
+      expect(res.status).toBe(401);
     });
   });
 });

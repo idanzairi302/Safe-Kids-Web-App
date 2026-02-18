@@ -68,6 +68,34 @@ describe('Comment Routes', () => {
 
       expect(res.status).toBe(404);
     });
+
+    it('should fail with empty text', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'emptycommenter',
+        email: 'emptycommenter@example.com',
+      });
+
+      const res = await request(app)
+        .post(`/api/posts/${postId}/comments`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ text: '' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should fail with malformed post ID', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'badidcommenter',
+        email: 'badidcommenter@example.com',
+      });
+
+      const res = await request(app)
+        .post('/api/posts/not-a-valid-id/comments')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ text: 'Comment with bad post id' });
+
+      expect(res.status).toBe(400);
+    });
   });
 
   // ─── GET /api/posts/:postId/comments ───────────────────────────────
@@ -145,6 +173,38 @@ describe('Comment Routes', () => {
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(res.status).toBe(403);
+    });
+
+    it('should return 401 without auth', async () => {
+      const commentAuthor = await createTestUser({
+        username: 'noauthowner',
+        email: 'noauthowner@example.com',
+      });
+
+      const comment = await Comment.create({
+        post: postId,
+        author: commentAuthor._id,
+        text: 'Cannot delete without auth',
+      });
+
+      const res = await request(app)
+        .delete(`/api/posts/${postId}/comments/${comment._id}`);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 404 for non-existent comment', async () => {
+      const fakeCommentId = new mongoose.Types.ObjectId();
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'delnotfound',
+        email: 'delnotfound@example.com',
+      });
+
+      const res = await request(app)
+        .delete(`/api/posts/${postId}/comments/${fakeCommentId}`)
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(res.status).toBe(404);
     });
   });
 });

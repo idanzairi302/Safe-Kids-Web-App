@@ -8,6 +8,13 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "jest --forceExit --detectOpenHandles",
+    "test:auth": "jest --forceExit --detectOpenHandles tests/auth.test.ts",
+    "test:posts": "jest --forceExit --detectOpenHandles tests/posts.test.ts",
+    "test:comments": "jest --forceExit --detectOpenHandles tests/comments.test.ts",
+    "test:likes": "jest --forceExit --detectOpenHandles tests/likes.test.ts",
+    "test:users": "jest --forceExit --detectOpenHandles tests/users.test.ts",
+    "test:search": "jest --forceExit --detectOpenHandles tests/search.test.ts",
+    "test:unit": "jest --forceExit --detectOpenHandles tests/ai-service.test.ts tests/health.test.ts",
     "test:watch": "jest --watch --forceExit --detectOpenHandles",
     "lint": "eslint src/ --ext .ts"
   },

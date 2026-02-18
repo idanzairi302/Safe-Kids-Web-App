@@ -3,6 +3,20 @@ import app from '../src/app';
 import User from '../src/auth/user.model';
 import { createTestUser, createAuthenticatedUser, getRefreshToken } from './setup';
 
+// Mock google-auth-library
+jest.mock('google-auth-library', () => {
+  const mockVerifyIdToken = jest.fn();
+  return {
+    OAuth2Client: jest.fn().mockImplementation(() => ({
+      verifyIdToken: mockVerifyIdToken,
+    })),
+    __mockVerifyIdToken: mockVerifyIdToken,
+  };
+});
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { __mockVerifyIdToken: mockVerifyIdToken } = require('google-auth-library');
+
 describe('Auth Routes', () => {
   // ─── POST /api/auth/register ────────────────────────────────────────
   describe('POST /api/auth/register', () => {
@@ -182,6 +196,130 @@ describe('Auth Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Logged out');
+    });
+  });
+
+  // ─── POST /api/auth/google ────────────────────────────────────────
+  describe('POST /api/auth/google', () => {
+    beforeEach(() => {
+      mockVerifyIdToken.mockReset();
+    });
+
+    it('should create a new user via Google sign-in', async () => {
+      mockVerifyIdToken.mockResolvedValue({
+        getPayload: () => ({
+          email: 'googleuser@gmail.com',
+          name: 'Google User',
+          picture: 'https://example.com/photo.jpg',
+          sub: 'google-id-123',
+        }),
+      });
+
+      const res = await request(app)
+        .post('/api/auth/google')
+        .send({ credential: 'valid-google-token' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.accessToken).toBeDefined();
+      expect(res.body.user).toBeDefined();
+      expect(res.body.user.email).toBe('googleuser@gmail.com');
+      expect(res.body.user.username).toBe('Google User');
+
+      const cookies = res.headers['set-cookie'];
+      expect(cookies).toBeDefined();
+      const cookieStr = Array.isArray(cookies) ? cookies.join('; ') : cookies;
+      expect(cookieStr).toMatch(/refreshToken/);
+    });
+
+    it('should login existing Google user', async () => {
+      // Create user with googleId
+      await User.create({
+        username: 'existinggoogle',
+        email: 'existing@gmail.com',
+        googleId: 'google-id-456',
+        profileImage: 'https://example.com/old.jpg',
+      });
+
+      mockVerifyIdToken.mockResolvedValue({
+        getPayload: () => ({
+          email: 'existing@gmail.com',
+          name: 'Existing Google',
+          picture: 'https://example.com/new.jpg',
+          sub: 'google-id-456',
+        }),
+      });
+
+      const res = await request(app)
+        .post('/api/auth/google')
+        .send({ credential: 'valid-google-token' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.user.email).toBe('existing@gmail.com');
+      expect(res.body.accessToken).toBeDefined();
+    });
+
+    it('should link Google to existing email user', async () => {
+      // Create user with email/password but no googleId
+      await createTestUser({
+        username: 'emailuser',
+        email: 'linkme@gmail.com',
+        password: 'password123',
+      });
+
+      mockVerifyIdToken.mockResolvedValue({
+        getPayload: () => ({
+          email: 'linkme@gmail.com',
+          name: 'Link Me',
+          picture: 'https://example.com/pic.jpg',
+          sub: 'google-id-789',
+        }),
+      });
+
+      const res = await request(app)
+        .post('/api/auth/google')
+        .send({ credential: 'valid-google-token' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.user.email).toBe('linkme@gmail.com');
+
+      // Verify googleId was linked
+      const user = await User.findOne({ email: 'linkme@gmail.com' });
+      expect(user!.googleId).toBe('google-id-789');
+    });
+
+    it('should fail with missing credential', async () => {
+      const res = await request(app)
+        .post('/api/auth/google')
+        .send({});
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should fail with invalid Google token', async () => {
+      mockVerifyIdToken.mockRejectedValue(new Error('Invalid token'));
+
+      const res = await request(app)
+        .post('/api/auth/google')
+        .send({ credential: 'invalid-token' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toMatch(/Google/i);
+    });
+
+    it('should fail when Google returns no email', async () => {
+      mockVerifyIdToken.mockResolvedValue({
+        getPayload: () => ({
+          name: 'No Email',
+          sub: 'google-id-noemail',
+        }),
+      });
+
+      const res = await request(app)
+        .post('/api/auth/google')
+        .send({ credential: 'valid-google-token' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/Invalid Google token/i);
     });
   });
 });
