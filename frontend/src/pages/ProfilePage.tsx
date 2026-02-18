@@ -49,8 +49,8 @@ const ProfilePage: React.FC = () => {
       const formData = new FormData();
       formData.append('username', editUsername);
       if (editImage) formData.append('profileImage', editImage);
-      await updateUser(formData);
-      setProfileUser((prev) => prev ? { ...prev, username: editUsername } : prev);
+      const updatedUser = await updateUser(formData);
+      setProfileUser((prev) => prev ? { ...prev, username: updatedUser.username, profileImage: updatedUser.profileImage } : prev);
       setEditing(false);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to update profile');

@@ -9,7 +9,7 @@ interface AuthContextType {
   register: (username: string, email: string, password: string) => Promise<void>;
   googleLogin: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateUser: (data: FormData) => Promise<void>;
+  updateUser: (data: FormData) => Promise<User>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,11 +58,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const updateUser = useCallback(async (formData: FormData) => {
+  const updateUser = useCallback(async (formData: FormData): Promise<User> => {
     const { data } = await api.put('/api/users/me', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     setUser(data);
+    return data;
   }, []);
 
   return (
