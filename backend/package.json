@@ -14,7 +14,8 @@
     "test:likes": "jest --forceExit --detectOpenHandles tests/likes.test.ts",
     "test:users": "jest --forceExit --detectOpenHandles tests/users.test.ts",
     "test:search": "jest --forceExit --detectOpenHandles tests/search.test.ts",
-    "test:unit": "jest --forceExit --detectOpenHandles tests/ai-service.test.ts tests/health.test.ts",
+    "test:unit": "jest --forceExit --detectOpenHandles tests/ai-service.test.ts tests/health.test.ts tests/env.test.ts",
+    "test:coverage": "jest --forceExit --detectOpenHandles --coverage",
     "test:watch": "jest --watch --forceExit --detectOpenHandles",
     "lint": "eslint src/ --ext .ts"
   },

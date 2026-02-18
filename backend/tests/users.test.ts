@@ -1,6 +1,7 @@
 import request from 'supertest';
 import mongoose from 'mongoose';
 import app from '../src/app';
+import User from '../src/auth/user.model';
 import { createTestUser, createAuthenticatedUser, getAccessToken, testImageBuffer } from './setup';
 
 describe('User Routes', () => {
@@ -121,6 +122,59 @@ describe('User Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.username).toBe('updatedname');
       expect(res.body.profileImage).toMatch(/\/uploads\//);
+    });
+
+    it('should reject non-image file for profile image', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'badfile',
+        email: 'badfile@example.com',
+      });
+
+      const res = await request(app)
+        .put('/api/users/me')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .attach('profileImage', Buffer.from('not an image'), {
+          filename: 'test.txt',
+          contentType: 'text/plain',
+        });
+
+      expect(res.status).toBe(500);
+    });
+
+    it('should return 404 when authenticated user not found in DB', async () => {
+      const { user, accessToken } = await createAuthenticatedUser({
+        username: 'ghostuser',
+        email: 'ghost@example.com',
+      });
+
+      // Delete the user from DB after getting the token
+      await User.findByIdAndDelete(user._id);
+
+      const res = await request(app)
+        .put('/api/users/me')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ username: 'newname' });
+
+      expect(res.status).toBe(404);
+    });
+
+    it('should return 500 when update profile throws', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'errupdate',
+        email: 'errupdate@example.com',
+      });
+
+      const spy = jest.spyOn(User, 'findById').mockImplementationOnce(() => {
+        throw new Error('DB error');
+      });
+
+      const res = await request(app)
+        .put('/api/users/me')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ username: 'newname' });
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
     });
   });
 });

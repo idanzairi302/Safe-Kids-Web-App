@@ -1,6 +1,5 @@
 import request from 'supertest';
 import mongoose from 'mongoose';
-import path from 'path';
 import app from '../src/app';
 import Post from '../src/posts/post.model';
 import Comment from '../src/comments/comment.model';
@@ -69,6 +68,24 @@ describe('Post Routes', () => {
 
       expect(res.status).toBe(400);
     });
+
+    it('should reject non-image file', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'poster4',
+        email: 'poster4@example.com',
+      });
+
+      const res = await request(app)
+        .post('/api/posts')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .field('text', 'Bad file type')
+        .attach('image', Buffer.from('not an image'), {
+          filename: 'test.txt',
+          contentType: 'text/plain',
+        });
+
+      expect(res.status).toBe(500);
+    });
   });
 
   // ─── GET /api/posts ────────────────────────────────────────────────
@@ -122,6 +139,22 @@ describe('Post Routes', () => {
       }
     });
 
+    it('should return 400 for invalid cursor', async () => {
+      const res = await request(app)
+        .get('/api/posts')
+        .query({ cursor: 'not-a-valid-id' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 400 for invalid author ID', async () => {
+      const res = await request(app)
+        .get('/api/posts')
+        .query({ author: 'not-valid' });
+
+      expect(res.status).toBe(400);
+    });
+
     it('should filter by author', async () => {
       const otherUser = await createTestUser({
         username: 'other',
@@ -170,6 +203,12 @@ describe('Post Routes', () => {
       const res = await request(app).get(`/api/posts/${fakeId}`);
 
       expect(res.status).toBe(404);
+    });
+
+    it('should return 400 for invalid post ID format', async () => {
+      const res = await request(app).get('/api/posts/not-a-valid-id');
+
+      expect(res.status).toBe(400);
     });
   });
 
@@ -226,6 +265,55 @@ describe('Post Routes', () => {
         .field('text', 'No auth');
 
       expect(res.status).toBe(401);
+    });
+
+    it('should return 400 for invalid post ID', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'putbadid',
+        email: 'putbadid@example.com',
+      });
+
+      const res = await request(app)
+        .put('/api/posts/not-a-valid-id')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .field('text', 'Bad ID');
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 404 for non-existent post', async () => {
+      const fakeId = new mongoose.Types.ObjectId();
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'putnotfound',
+        email: 'putnotfound@example.com',
+      });
+
+      const res = await request(app)
+        .put(`/api/posts/${fakeId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .field('text', 'Not found');
+
+      expect(res.status).toBe(404);
+    });
+
+    it('should allow owner to update post image', async () => {
+      const { user, accessToken } = await createAuthenticatedUser({
+        username: 'imgupdate',
+        email: 'imgupdate@example.com',
+      });
+      const post = await Post.create({
+        author: user._id,
+        text: 'Image update post',
+        image: 'old-image.png',
+      });
+
+      const res = await request(app)
+        .put(`/api/posts/${post._id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .attach('image', testImageBuffer, 'new-image.png');
+
+      expect(res.status).toBe(200);
+      expect(res.body.image).not.toBe('old-image.png');
     });
   });
 
@@ -292,6 +380,133 @@ describe('Post Routes', () => {
       const res = await request(app).delete(`/api/posts/${fakeId}`);
 
       expect(res.status).toBe(401);
+    });
+
+    it('should return 400 for invalid post ID', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'delbadid',
+        email: 'delbadid@example.com',
+      });
+
+      const res = await request(app)
+        .delete('/api/posts/not-a-valid-id')
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 404 for non-existent post', async () => {
+      const fakeId = new mongoose.Types.ObjectId();
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'delnotfound',
+        email: 'delnotfound@example.com',
+      });
+
+      const res = await request(app)
+        .delete(`/api/posts/${fakeId}`)
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  // ─── Server error handling ──────────────────────────────────────
+  describe('Server error handling', () => {
+    it('should return 500 when create post throws', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'errposter',
+        email: 'errposter@example.com',
+      });
+
+      const spy = jest.spyOn(Post, 'create').mockRejectedValueOnce(new Error('DB error'));
+
+      const res = await request(app)
+        .post('/api/posts')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .field('text', 'Error post')
+        .attach('image', testImageBuffer, 'test.png');
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
+    });
+
+    it('should return 500 when GET /posts throws', async () => {
+      const spy = jest.spyOn(Post, 'find').mockImplementationOnce(() => {
+        throw new Error('DB error');
+      });
+
+      const res = await request(app).get('/api/posts');
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
+    });
+
+    it('should return 500 when GET /posts/:id throws', async () => {
+      const validId = new mongoose.Types.ObjectId();
+      const spy = jest.spyOn(Post, 'findById').mockImplementationOnce(() => {
+        throw new Error('DB error');
+      });
+
+      const res = await request(app).get(`/api/posts/${validId}`);
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
+    });
+
+    it('should return 400 when PUT /posts/:id has invalid text', async () => {
+      const { user, accessToken } = await createAuthenticatedUser({
+        username: 'putvalid',
+        email: 'putvalid@example.com',
+      });
+      const post = await Post.create({
+        author: user._id,
+        text: 'Original',
+        image: 'orig.png',
+      });
+
+      const res = await request(app)
+        .put(`/api/posts/${post._id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .field('text', '');
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 500 when PUT /posts/:id throws', async () => {
+      const validId = new mongoose.Types.ObjectId();
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'puterr',
+        email: 'puterr@example.com',
+      });
+      const spy = jest.spyOn(Post, 'findById').mockImplementationOnce(() => {
+        throw new Error('DB error');
+      });
+
+      const res = await request(app)
+        .put(`/api/posts/${validId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .field('text', 'Error');
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
+    });
+
+    it('should return 500 when DELETE /posts/:id throws', async () => {
+      const validId = new mongoose.Types.ObjectId();
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'delerr',
+        email: 'delerr@example.com',
+      });
+      const spy = jest.spyOn(Post, 'findById').mockImplementationOnce(() => {
+        throw new Error('DB error');
+      });
+
+      const res = await request(app)
+        .delete(`/api/posts/${validId}`)
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
     });
   });
 });

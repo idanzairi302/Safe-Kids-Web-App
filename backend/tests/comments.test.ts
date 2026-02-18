@@ -122,6 +122,49 @@ describe('Comment Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.comments).toHaveLength(0);
     });
+
+    it('should return 400 for invalid post ID', async () => {
+      const res = await request(app).get('/api/posts/not-a-valid-id/comments');
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 400 for invalid cursor', async () => {
+      const res = await request(app)
+        .get(`/api/posts/${postId}/comments`)
+        .query({ cursor: 'not-valid' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should support cursor pagination', async () => {
+      const user = await createTestUser({
+        username: 'paginatecommenter',
+        email: 'paginatecommenter@example.com',
+      });
+
+      // Create 3 comments
+      for (let i = 0; i < 3; i++) {
+        await Comment.create({ post: postId, author: user._id, text: `Comment ${i}` });
+      }
+
+      const first = await request(app)
+        .get(`/api/posts/${postId}/comments`)
+        .query({ limit: 2 });
+
+      expect(first.status).toBe(200);
+      expect(first.body.comments).toHaveLength(2);
+      expect(first.body.hasMore).toBe(true);
+      expect(first.body.nextCursor).toBeDefined();
+
+      const second = await request(app)
+        .get(`/api/posts/${postId}/comments`)
+        .query({ limit: 2, cursor: first.body.nextCursor });
+
+      expect(second.status).toBe(200);
+      expect(second.body.comments).toHaveLength(1);
+      expect(second.body.hasMore).toBe(false);
+    });
   });
 
   // ─── DELETE /api/posts/:postId/comments/:commentId ─────────────────
@@ -205,6 +248,69 @@ describe('Comment Routes', () => {
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(res.status).toBe(404);
+    });
+
+    it('should return 400 for invalid IDs in delete', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'delbadids',
+        email: 'delbadids@example.com',
+      });
+
+      const res = await request(app)
+        .delete('/api/posts/bad-id/comments/also-bad')
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // ─── Server error handling ──────────────────────────────────────
+  describe('Server error handling', () => {
+    it('should return 500 when create comment throws', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'errcommenter',
+        email: 'errcommenter@example.com',
+      });
+
+      const spy = jest.spyOn(Comment, 'create').mockRejectedValueOnce(new Error('DB error'));
+
+      const res = await request(app)
+        .post(`/api/posts/${postId}/comments`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ text: 'Error comment' });
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
+    });
+
+    it('should return 500 when list comments throws', async () => {
+      const spy = jest.spyOn(Comment, 'find').mockImplementationOnce(() => {
+        throw new Error('DB error');
+      });
+
+      const res = await request(app).get(`/api/posts/${postId}/comments`);
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
+    });
+
+    it('should return 500 when delete comment throws', async () => {
+      const { accessToken } = await createAuthenticatedUser({
+        username: 'delcomerr',
+        email: 'delcomerr@example.com',
+      });
+      const validCommentId = new mongoose.Types.ObjectId();
+
+      const spy = jest.spyOn(Comment, 'findById').mockImplementationOnce(() => {
+        throw new Error('DB error');
+      });
+
+      const res = await request(app)
+        .delete(`/api/posts/${postId}/comments/${validCommentId}`)
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
     });
   });
 });

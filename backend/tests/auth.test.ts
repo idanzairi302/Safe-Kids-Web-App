@@ -1,4 +1,5 @@
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import app from '../src/app';
 import User from '../src/auth/user.model';
 import { createTestUser, createAuthenticatedUser, getRefreshToken } from './setup';
@@ -85,6 +86,21 @@ describe('Auth Routes', () => {
 
       expect(res.status).toBe(400);
     });
+
+    it('should return 500 when register throws', async () => {
+      const spy = jest.spyOn(User, 'findOne').mockImplementationOnce(() => {
+        throw new Error('DB error');
+      });
+
+      const res = await request(app).post('/api/auth/register').send({
+        username: 'erruser',
+        email: 'err@example.com',
+        password: 'password123',
+      });
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
+    });
   });
 
   // ─── POST /api/auth/login ──────────────────────────────────────────
@@ -137,6 +153,20 @@ describe('Auth Routes', () => {
 
       expect(res.status).toBe(400);
     });
+
+    it('should return 500 when login throws', async () => {
+      const spy = jest.spyOn(User, 'findOne').mockImplementationOnce(() => {
+        throw new Error('DB error');
+      });
+
+      const res = await request(app).post('/api/auth/login').send({
+        email: 'login@example.com',
+        password: 'password123',
+      });
+
+      expect(res.status).toBe(500);
+      spy.mockRestore();
+    });
   });
 
   // ─── POST /api/auth/refresh ────────────────────────────────────────
@@ -169,6 +199,22 @@ describe('Auth Routes', () => {
 
       expect(res.status).toBe(401);
     });
+
+    it('should fail when valid JWT but token not stored on user', async () => {
+      const { user, refreshToken } = await createAuthenticatedUser({
+        username: 'stolentoken',
+        email: 'stolen@example.com',
+      });
+
+      // Remove all tokens from the user's stored list
+      await User.findByIdAndUpdate(user._id, { $set: { refreshTokens: [] } });
+
+      const res = await request(app)
+        .post('/api/auth/refresh')
+        .set('Cookie', `refreshToken=${refreshToken}`);
+
+      expect(res.status).toBe(401);
+    });
   });
 
   // ─── POST /api/auth/logout ─────────────────────────────────────────
@@ -193,6 +239,15 @@ describe('Auth Routes', () => {
 
     it('should succeed even without a cookie', async () => {
       const res = await request(app).post('/api/auth/logout');
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Logged out');
+    });
+
+    it('should still clear cookie and return 200 with expired token', async () => {
+      const res = await request(app)
+        .post('/api/auth/logout')
+        .set('Cookie', 'refreshToken=expired-or-invalid-token');
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe('Logged out');
@@ -306,6 +361,25 @@ describe('Auth Routes', () => {
       expect(res.body.error).toMatch(/Google/i);
     });
 
+    it('should create user with email prefix when Google returns no name', async () => {
+      mockVerifyIdToken.mockResolvedValue({
+        getPayload: () => ({
+          email: 'noname@gmail.com',
+          name: '',
+          picture: '',
+          sub: 'google-id-noname',
+        }),
+      });
+
+      const res = await request(app)
+        .post('/api/auth/google')
+        .send({ credential: 'valid-google-token' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.user.username).toBe('noname');
+      expect(res.body.user.profileImage).toBe('');
+    });
+
     it('should fail when Google returns no email', async () => {
       mockVerifyIdToken.mockResolvedValue({
         getPayload: () => ({
@@ -320,6 +394,36 @@ describe('Auth Routes', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error).toMatch(/Invalid Google token/i);
+    });
+  });
+
+  // ─── Auth Middleware ──────────────────────────────────────────────
+  describe('Auth Middleware', () => {
+    it('should return 401 for expired access token', async () => {
+      const expiredToken = jwt.sign({ _id: 'someid' }, process.env.JWT_SECRET || 'dev-jwt-secret', {
+        expiresIn: '0s',
+      } as jwt.SignOptions);
+
+      const res = await request(app)
+        .put('/api/users/me')
+        .set('Authorization', `Bearer ${expiredToken}`)
+        .send({ username: 'newname' });
+
+      expect(res.status).toBe(401);
+    });
+  });
+
+  // ─── User Model ──────────────────────────────────────────────────
+  describe('User Model', () => {
+    it('comparePassword should return false for user without password (Google user)', async () => {
+      const user = await User.create({
+        username: 'googleonly',
+        email: 'googleonly@gmail.com',
+        googleId: 'google-no-pw',
+      });
+
+      const result = await user.comparePassword('anypassword');
+      expect(result).toBe(false);
     });
   });
 });

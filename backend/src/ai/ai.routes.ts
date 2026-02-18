@@ -10,7 +10,7 @@ const router = Router();
 const searchRateLimiter = rateLimit({
   windowMs: config.ollama.rateLimitWindowMs,
   max: config.ollama.rateLimitMax,
-  keyGenerator: (req) => (req as AuthRequest).userId || 'anonymous',
+  keyGenerator: /* istanbul ignore next */ (req) => (req as AuthRequest).userId || 'anonymous',
   message: { error: 'Too many search requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
