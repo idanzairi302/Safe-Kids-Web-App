@@ -56,7 +56,6 @@ describe('Search Routes', () => {
         json: async () => ({
           response: JSON.stringify({
             keywords: ['playground', 'broken', 'swing'],
-            category: 'playground',
             sortBy: 'recent',
           }),
         }),
@@ -132,7 +131,7 @@ describe('Search Routes', () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
-          response: '```json\n{"keywords": ["dogs", "park"], "category": "animals", "sortBy": "recent"}\n```',
+          response: '```json\n{"keywords": ["dogs", "park"], "sortBy": "recent"}\n```',
         }),
       }) as jest.Mock;
 
@@ -152,7 +151,6 @@ describe('Search Routes', () => {
         json: async () => ({
           response: JSON.stringify({
             keywords: ['playground'],
-            category: 'playground',
             sortBy: 'popular',
           }),
         }),
@@ -188,7 +186,7 @@ describe('Search Routes', () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
-          response: JSON.stringify({ category: 'playground' }),
+          response: JSON.stringify({ sortBy: 'recent' }),
         }),
       }) as jest.Mock;
 
@@ -235,27 +233,6 @@ describe('Search Routes', () => {
       expect(res.body.fallback).toBe(true);
     });
 
-    it('should ignore invalid category', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          response: JSON.stringify({
-            keywords: ['test'],
-            category: 'invalid-category',
-            sortBy: 'recent',
-          }),
-        }),
-      }) as jest.Mock;
-
-      const res = await request(app)
-        .post('/api/search')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({ query: 'test invalid category' });
-
-      expect(res.status).toBe(200);
-      expect(res.body.query.category).toBeUndefined();
-    });
-
     it('should ignore invalid sortBy value', async () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
@@ -282,7 +259,6 @@ describe('Search Routes', () => {
         json: async () => ({
           response: JSON.stringify({
             keywords: ['swing', 'playground'],
-            category: 'playground',
             sortBy: 'recent',
           }),
         }),

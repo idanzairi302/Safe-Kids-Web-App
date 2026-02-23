@@ -5,7 +5,6 @@ import Post, { IPost } from '../posts/post.model';
 
 export interface ParsedQuery {
   keywords: string[];
-  category?: string;
   sortBy?: string;
 }
 
@@ -19,8 +18,6 @@ interface MongoQuery {
   filter: Record<string, unknown>;
   sort: Record<string, 1 | -1>;
 }
-
-const VALID_CATEGORIES = ['playground', 'road', 'lighting', 'animals', 'water', 'general'];
 
 const cache = new NodeCache({ stdTTL: config.ollama.cacheTtlSeconds });
 const inflightQueries = new Map<string, Promise<SearchResult>>();
@@ -46,16 +43,11 @@ function validateParsedQuery(data: unknown): ParsedQuery {
     }
   }
 
+  // Deduplicate and cap at 14 keywords
+  const unique = [...new Set((obj.keywords as string[]).filter(k => k.trim() !== ''))];
   const result: ParsedQuery = {
-    keywords: obj.keywords as string[],
+    keywords: unique.slice(0, 14),
   };
-
-  if (obj.category != null) {
-    const cat = String(obj.category);
-    if (VALID_CATEGORIES.includes(cat)) {
-      result.category = cat;
-    }
-  }
 
   if (obj.sortBy === 'popular' || obj.sortBy === 'recent') {
     result.sortBy = obj.sortBy;
@@ -128,12 +120,10 @@ async function ollamaGenerateWithRetry(query: string): Promise<ParsedQuery> {
 }
 
 function buildMongoQuery(parsed: ParsedQuery): MongoQuery {
-  let searchTerms = parsed.keywords.join(' ');
-  if (parsed.category && parsed.category !== 'general') {
-    searchTerms += ` ${parsed.category}`;
-  }
+  const searchTerms = parsed.keywords.join(' ');
 
   const filter = { $text: { $search: searchTerms } };
+
   const sort: Record<string, 1 | -1> =
     parsed.sortBy === 'popular' ? { likesCount: -1 } : { createdAt: -1 };
 
