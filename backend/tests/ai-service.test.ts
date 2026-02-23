@@ -21,50 +21,33 @@ describe('AI Service', () => {
       expect(result).toContain('dark alley near school');
     });
 
-    it('should wrap query in quotes', () => {
+    it('should wrap query in USER_QUERY tags', () => {
       const result = buildPrompt('stray dogs');
-      expect(result).toContain('"stray dogs"');
+      expect(result).toContain('<USER_QUERY>stray dogs</USER_QUERY>');
     });
   });
 });
 
 describe('AI Service - validateParsedQuery', () => {
-  // validateParsedQuery is not exported, so we test it indirectly
-  // by testing the exported module behavior. If the function were exported,
-  // we'd test it directly. For now, we test the contract through integration.
-
-  // We can still test the logic by importing the compiled JS if needed.
-  // For a cleaner approach, let's test the patterns the function enforces:
-
   describe('ParsedQuery validation logic', () => {
-    it('should accept valid query with keywords', () => {
+    it('should accept valid query with keywords and sortBy', () => {
       const valid = {
         keywords: ['playground', 'broken'],
-        category: 'playground',
         sortBy: 'recent',
       };
-      // The shape should match ParsedQuery interface
       expect(valid.keywords).toBeInstanceOf(Array);
       expect(valid.keywords.length).toBeGreaterThan(0);
-      expect(['playground', 'road', 'lighting', 'animals', 'water', 'general']).toContain(valid.category);
       expect(['recent', 'popular']).toContain(valid.sortBy);
     });
 
     it('should reject query without keywords', () => {
-      const invalid = { category: 'playground', sortBy: 'recent' };
+      const invalid = { sortBy: 'recent' };
       expect((invalid as any).keywords).toBeUndefined();
     });
 
     it('should reject empty keywords array', () => {
-      const invalid = { keywords: [], category: 'playground' };
+      const invalid = { keywords: [] };
       expect(invalid.keywords.length).toBe(0);
-    });
-
-    it('should accept valid categories', () => {
-      const validCategories = ['playground', 'road', 'lighting', 'animals', 'water', 'general'];
-      validCategories.forEach(cat => {
-        expect(validCategories).toContain(cat);
-      });
     });
 
     it('should accept valid sortBy values', () => {
@@ -84,18 +67,30 @@ describe('AI Prompts', () => {
       expect(SYSTEM_PROMPT).toContain('JSON');
     });
 
-    it('should list all valid categories', () => {
-      expect(SYSTEM_PROMPT).toContain('playground');
-      expect(SYSTEM_PROMPT).toContain('road');
-      expect(SYSTEM_PROMPT).toContain('lighting');
-      expect(SYSTEM_PROMPT).toContain('animals');
-      expect(SYSTEM_PROMPT).toContain('water');
-      expect(SYSTEM_PROMPT).toContain('general');
+    it('should not include category in schema', () => {
+      expect(SYSTEM_PROMPT).not.toContain('"category"');
     });
 
     it('should mention sortBy options', () => {
       expect(SYSTEM_PROMPT).toContain('recent');
       expect(SYSTEM_PROMPT).toContain('popular');
+    });
+
+    it('should include bilingual keyword instructions', () => {
+      expect(SYSTEM_PROMPT).toContain('Hebrew');
+      expect(SYSTEM_PROMPT).toContain('English');
+    });
+
+    it('should include security boundary instructions', () => {
+      expect(SYSTEM_PROMPT).toContain('untrusted data');
+      expect(SYSTEM_PROMPT).toContain('USER_QUERY');
+    });
+
+    it('should include few-shot examples with real Hebrew', () => {
+      expect(SYSTEM_PROMPT).toContain('כלב');
+      expect(SYSTEM_PROMPT).toContain('מגלשה');
+      expect(SYSTEM_PROMPT).toContain('חתול');
+      expect(SYSTEM_PROMPT).toContain('EXAMPLES');
     });
   });
 });
